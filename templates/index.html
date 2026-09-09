@@ -1,26 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <title>Simple Calculator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 400px;
+            max-width: 420px;
             margin: 50px auto;
             padding: 20px;
             text-align: center;
         }
-
-        input {
+        input, select {
             width: 100%;
             padding: 10px;
             margin: 8px 0;
             font-size: 16px;
             box-sizing: border-box;
         }
-
         button {
             width: 100%;
             padding: 12px;
@@ -31,33 +28,49 @@
             cursor: pointer;
             margin-top: 10px;
         }
-
         button:hover {
             background-color: #45a049;
         }
-
         .result {
             margin-top: 25px;
             font-size: 22px;
             font-weight: bold;
         }
+        .version {
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+        a {
+            color: #2196F3;
+            text-decoration: none;
+        }
     </style>
 </head>
-
 <body>
     <h1>Simple Calculator</h1>
 
     <form method="POST">
         <input type="number" name="num1" step="any" placeholder="Enter first number" required>
         <input type="number" name="num2" step="any" placeholder="Enter second number" required>
+
+        <select name="operation">
+            <option value="add" {% if operation == "add" %}selected{% endif %}>Add (+)</option>
+            <option value="multiply" {% if operation == "multiply" %}selected{% endif %}>Multiply (×)</option>
+        </select>
+
         <button type="submit">Calculate</button>
     </form>
 
     {% if result is not none %}
-    <div class="result">
-        Result: {{ result }}
-    </div>
+        <div class="result">
+            Result: {{ result }}
+        </div>
     {% endif %}
-</body>
 
+    <div class="version">
+        Version {{ version }} | 
+        <a href="/swagger" target="_blank">Open Swagger API</a>
+    </div>
+</body>
 </html>
