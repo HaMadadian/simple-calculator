@@ -11,7 +11,7 @@ app = Flask(__name__)
 auth = HTTPBasicAuth()
 
 # ---------- Version ----------
-APP_VERSION = "1.3"
+APP_VERSION = "1.4"
 
 # ---------- Database setup ----------
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///calculator.db"
@@ -27,7 +27,7 @@ class Calculation(db.Model):
     operation = db.Column(db.String(20), nullable=False)
     result = db.Column(db.Float, nullable=False)
     unix_timestamp = db.Column(db.Integer, nullable=False)
-    local_time = db.Column(db.String(50), nullable=False)
+    local_timestamp = db.Column(db.DateTime, nullable=False)
 
     def __repr__(self):
         return f"<{self.operation}: {self.num1} and {self.num2} = {self.result}>"
@@ -63,7 +63,7 @@ def save_calculation(num1, num2, operation, result):
         operation=operation,
         result=result,
         unix_timestamp=int(time.time()),
-        local_time=now.strftime("%Y-%m-%d %H:%M:%S")
+        local_timestamp=now
     )
     db.session.add(calculation)
     db.session.commit()
@@ -148,6 +148,21 @@ def index():
         operation=operation,
         version=APP_VERSION
     )
+
+
+# ---------- Create the History page ----------
+@app.route("/history")
+def history():
+    calculations = Calculation.query.order_by(
+        Calculation.id.desc()
+    ).all()
+
+    return render_template(
+        "history.html",
+        calculations=calculations,
+        version=APP_VERSION
+    )
+
 
 
 # ---------- Create the database tables ----------
