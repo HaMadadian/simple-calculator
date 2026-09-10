@@ -11,7 +11,7 @@ app = Flask(__name__)
 auth = HTTPBasicAuth()
 
 # ---------- Version ----------
-APP_VERSION = "1.4"
+APP_VERSION = "1.5"
 
 # ---------- Database setup ----------
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///calculator.db"
@@ -164,6 +164,44 @@ def history():
     )
 
 
+# ---------- Create the Report page with plot ----------
+@app.route("/report")
+def report():
+    calculations = Calculation.query.order_by(
+        Calculation.id.asc()
+    ).all()
+
+    return render_template(
+        "report.html",
+        calculations=calculations,
+        version=APP_VERSION
+    )
+
+
+
+# ---------- Create API endpoint for continuous polling of report data ----------
+@app.route("/api/report-data")
+def report_data():
+    calculations = Calculation.query.order_by(
+        Calculation.id.asc()
+    ).all()
+
+    return {
+        "calculations": [
+            {
+                "id": calculation.id,
+                "local_timestamp": calculation.local_timestamp.isoformat(),
+                "unix_timestamp": calculation.unix_timestamp,
+                "num1": calculation.num1,
+                "num2": calculation.num2,
+                "operation": calculation.operation,
+                "result": calculation.result
+            }
+            for calculation in calculations
+        ]
+    }
+
+
 
 # ---------- Create the database tables ----------
 with app.app_context():
@@ -172,3 +210,6 @@ with app.app_context():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+

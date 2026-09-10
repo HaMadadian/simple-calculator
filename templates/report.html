@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Calculation Report</title>
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+
+        body {
+
+            margin: 0;
+
+            min-height: 100vh;
+
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+
+            background:
+                linear-gradient(135deg,
+                    #eef2ff,
+                    #f8fafc);
+
+            color: #1e293b;
+        }
+
+
+        .container {
+
+            width: 100%;
+
+            max-width: 1400px;
+
+            margin: 0 auto;
+
+            padding: 30px 25px;
+        }
+
+
+        /* ---------- Header ---------- */
+
+        .header {
+
+            text-align: center;
+
+            margin-bottom: 20px;
+        }
+
+
+        .header h1 {
+
+            margin: 0;
+
+            font-size: 30px;
+
+            font-weight: 700;
+
+            color: #0f172a;
+        }
+
+
+        .header p {
+
+            margin: 7px 0 0;
+
+            color: #64748b;
+
+            font-size: 14px;
+        }
+
+
+        /* ---------- Chart ---------- */
+
+        .chart-card {
+
+            background: white;
+
+            border-radius: 18px;
+
+            padding: 15px 20px 20px;
+
+            box-shadow:
+                0 10px 35px rgba(15, 23, 42, 0.08);
+
+            border: 1px solid #e2e8f0;
+
+            overflow: hidden;
+        }
+
+
+        #chart {
+
+            width: 100%;
+
+            height: 650px;
+        }
+
+
+        /* ---------- Navigation ---------- */
+
+        .navigation {
+
+            display: flex;
+
+            justify-content: center;
+
+            gap: 10px;
+
+            margin-top: 20px;
+        }
+
+
+        .navigation a {
+
+            text-decoration: none;
+
+            padding: 9px 15px;
+
+            border-radius: 8px;
+
+            background: white;
+
+            border: 1px solid #e2e8f0;
+
+            color: #475569;
+
+            font-size: 14px;
+
+            font-weight: 500;
+
+            transition: 0.2s;
+        }
+
+
+        .navigation a:hover {
+
+            background: #f8fafc;
+
+            color: #4f46e5;
+
+            border-color: #c7d2fe;
+        }
+
+
+        /* ---------- Footer ---------- */
+
+        .footer {
+
+            text-align: center;
+
+            margin-top: 18px;
+
+            color: #94a3b8;
+
+            font-size: 13px;
+        }
+
+
+        /* ---------- Empty state ---------- */
+
+        .empty-message {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            height: 650px;
+
+            text-align: center;
+
+            color: #64748b;
+
+            font-size: 16px;
+        }
+
+
+        /* ---------- Responsive ---------- */
+
+        @media (max-width: 700px) {
+
+            .container {
+
+                padding: 20px 10px;
+            }
+
+
+            .header h1 {
+
+                font-size: 25px;
+            }
+
+
+            .chart-card {
+
+                padding: 8px;
+            }
+
+
+            #chart {
+
+                height: 500px;
+            }
+
+
+            .navigation {
+
+                flex-wrap: wrap;
+            }
+
+        }
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <div class="container">
+
+
+        <!-- Header -->
+
+        <div class="header">
+
+            <h1>Calculation Report</h1>
+
+            <p>
+                Calculation results over time
+            </p>
+
+        </div>
+
+
+        <!-- Chart -->
+
+        <div class="chart-card">
+
+            <div id="chart"></div>
+
+        </div>
+
+
+        <!-- Navigation -->
+
+        <div class="navigation">
+
+            <a href="/">
+                ← Calculator
+            </a>
+
+            <a href="/history">
+                History
+            </a>
+
+            <a href="/swagger" target="_blank">
+                Swagger API
+            </a>
+
+        </div>
+
+
+        <!-- Footer -->
+
+        <div class="footer">
+
+            Simple Calculator ·
+            Version {{ version }}
+
+        </div>
+
+
+    </div>
+
+
+    <script>
+
+
+        /*
+        ============================================================
+        Configuration
+        ============================================================
+        */
+
+
+        const UPDATE_INTERVAL = 5000;
+
+
+        /*
+        ============================================================
+        Create / update chart
+        ============================================================
+        */
+
+
+        function createChart(calculations) {
+
+
+            /*
+            --------------------------------------------------------
+            Empty database
+            --------------------------------------------------------
+            */
+
+
+            if (!calculations || calculations.length === 0) {
+
+                document.getElementById("chart").innerHTML = `
+                <div class="empty-message">
+                    No calculations available yet.
+                </div>
+            `;
+
+                return;
+            }
+
+
+            /*
+            --------------------------------------------------------
+            Prepare data
+            --------------------------------------------------------
+            */
+
+
+            const timestamps = calculations.map(
+                calculation =>
+                    calculation.local_timestamp
+            );
+
+
+            const results = calculations.map(
+                calculation =>
+                    calculation.result
+            );
+
+
+            /*
+            --------------------------------------------------------
+            Hover information
+            --------------------------------------------------------
+            */
+
+
+            const customData = calculations.map(
+                calculation => [
+
+                    calculation.num1,
+
+                    calculation.operation === "add"
+                        ? "+"
+                        : "×",
+
+                    calculation.num2,
+
+                    calculation.unix_timestamp
+
+                ]
+            );
+
+
+            /*
+            --------------------------------------------------------
+            Plotly trace
+            --------------------------------------------------------
+            */
+
+
+            const trace = {
+
+                x: timestamps,
+
+                y: results,
+
+                type: "scatter",
+
+                mode: "lines+markers",
+
+
+                line: {
+
+                    width: 3
+                },
+
+
+                marker: {
+
+                    size: 8
+                },
+
+
+                customdata: customData,
+
+
+                hovertemplate:
+
+                    "<b>%{x}</b><br>" +
+
+                    "Result: " +
+
+                    "<b>%{y}</b><br>" +
+
+                    "Calculation: " +
+
+                    "%{customdata[0]} " +
+
+                    "%{customdata[1]} " +
+
+                    "%{customdata[2]}<br>" +
+
+                    "Unix timestamp: " +
+
+                    "%{customdata[3]}" +
+
+                    "<extra></extra>"
+            };
+
+
+            /*
+            --------------------------------------------------------
+            Chart layout
+            --------------------------------------------------------
+            */
+
+
+            const layout = {
+
+
+                title: {
+
+                    text:
+                        "Calculation Results Over Time",
+
+                    font: {
+
+                        size: 22
+                    }
+                },
+
+
+                xaxis: {
+
+                    title: {
+
+                        text:
+                            "Local Date & Time"
+                    },
+
+
+                    type: "date",
+
+
+                    showgrid: true,
+
+
+                    tickformat:
+                        "%d %b<br>%H:%M:%S",
+
+
+                    hoverformat:
+                        "%d %b %Y %H:%M:%S"
+                },
+
+
+                yaxis: {
+
+                    title: {
+
+                        text:
+                            "Result Value"
+                    },
+
+
+                    showgrid: true,
+
+
+                    zeroline: true
+                },
+
+
+                hovermode: "closest",
+
+
+                margin: {
+
+                    l: 75,
+
+                    r: 30,
+
+                    t: 80,
+
+                    b: 80
+                },
+
+
+                paper_bgcolor:
+                    "white",
+
+
+                plot_bgcolor:
+                    "#f8fafc",
+
+
+                font: {
+
+                    family:
+                        "Arial, sans-serif"
+                }
+            };
+
+
+            /*
+            --------------------------------------------------------
+            Plotly configuration
+            --------------------------------------------------------
+            */
+
+
+            const config = {
+
+                responsive: true,
+
+                displaylogo: false,
+
+
+                modeBarButtonsToRemove: [
+
+                    "lasso2d",
+
+                    "select2d"
+
+                ]
+            };
+
+
+            /*
+            --------------------------------------------------------
+            Draw chart
+            --------------------------------------------------------
+            */
+
+
+            Plotly.newPlot(
+
+                "chart",
+
+                [trace],
+
+                layout,
+
+                config
+
+            );
+
+        }
+
+
+        /*
+        ============================================================
+        Retrieve data from Flask
+        ============================================================
+        */
+
+
+        async function updateChart() {
+
+
+            try {
+
+
+                const response = await fetch(
+                    "/api/report-data"
+                );
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `HTTP error: ${response.status}`
+                    );
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                createChart(
+                    data.calculations
+                );
+
+
+            }
+
+            catch (error) {
+
+
+                console.error(
+                    "Could not update report:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        /*
+        ============================================================
+        Initial chart
+        ============================================================
+        */
+
+
+        updateChart();
+
+
+        /*
+        ============================================================
+        Automatic update
+        ============================================================
+        
+        The report requests the latest database data
+        every 5 seconds.
+        
+        ============================================================
+        */
+
+
+        setInterval(
+
+            updateChart,
+
+            UPDATE_INTERVAL
+
+        );
+
+
+    </script>
+
+
+</body>
+
+</html>
+```
