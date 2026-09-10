@@ -1,16 +1,39 @@
 import os
+import time
+from datetime import datetime
 from flask import Flask, render_template, request
 from flask_restx import Api, Resource, fields
 from flask_httpauth import HTTPBasicAuth
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 auth = HTTPBasicAuth()
 
 # ---------- Version ----------
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 
-# ---------- Username & Password from environment variables ----------
+# ---------- Database setup ----------
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///calculator.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+
+
+# ---------- Database Model ----------
+class Calculation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    num1 = db.Column(db.Float, nullable=False)
+    num2 = db.Column(db.Float, nullable=False)
+    operation = db.Column(db.String(20), nullable=False)
+    result = db.Column(db.Float, nullable=False)
+    unix_timestamp = db.Column(db.Integer, nullable=False)
+    local_time = db.Column(db.String(50), nullable=False)
+
+    def __repr__(self):
+        return f"<{self.operation}: {self.num1} and {self.num2} = {self.result}>"
+
+
+# ---------- Username & Password ----------
 USERNAME = os.environ.get("BASIC_AUTH_USERNAME", "admin")
 PASSWORD = os.environ.get("BASIC_AUTH_PASSWORD", "password123")
 
@@ -25,11 +48,25 @@ def verify_password(username, password):
     return None
 
 
-# ---------- Force authentication on ALL routes ----------
+# ---------- Protect everything ----------
 @app.before_request
 def require_authentication():
-    # This forces the browser to ask for username/password on every request
     return auth.login_required(lambda: None)()
+
+
+# ---------- Helper function to save calculation ----------
+def save_calculation(num1, num2, operation, result):
+    now = datetime.now()
+    calculation = Calculation(
+        num1=num1,
+        num2=num2,
+        operation=operation,
+        result=result,
+        unix_timestamp=int(time.time()),
+        local_time=now.strftime("%Y-%m-%d %H:%M:%S")
+    )
+    db.session.add(calculation)
+    db.session.commit()
 
 
 # ---------- Swagger / API setup ----------
@@ -37,7 +74,7 @@ api = Api(
     app,
     version=APP_VERSION,
     title="Simple Calculator API",
-    description="A simple API that can add or multiply two numbers (Protected)",
+    description="A simple API that can add or multiply two numbers (Protected + Database)",
     doc="/swagger",
     prefix="/api"
 )
@@ -59,7 +96,12 @@ class AddNumbers(Resource):
     def post(self):
         """Add two numbers"""
         data = request.get_json()
-        return {"result": data["num1"] + data["num2"]}
+        num1 = data["num1"]
+        num2 = data["num2"]
+        result = num1 + num2
+
+        save_calculation(num1, num2, "add", result)
+        return {"result": result}
 
 
 @api.route("/multiply")
@@ -69,7 +111,12 @@ class MultiplyNumbers(Resource):
     def post(self):
         """Multiply two numbers"""
         data = request.get_json()
-        return {"result": data["num1"] * data["num2"]}
+        num1 = data["num1"]
+        num2 = data["num2"]
+        result = num1 * num2
+
+        save_calculation(num1, num2, "multiply", result)
+        return {"result": result}
 
 
 # ---------- HTML Form ----------
@@ -88,6 +135,10 @@ def index():
                 result = num1 + num2
             elif operation == "multiply":
                 result = num1 * num2
+
+            # Save to database
+            save_calculation(num1, num2, operation, result)
+
         except (ValueError, KeyError):
             result = "Please enter valid numbers"
 
@@ -97,6 +148,11 @@ def index():
         operation=operation,
         version=APP_VERSION
     )
+
+
+# ---------- Create the database tables ----------
+with app.app_context():
+    db.create_all()
 
 
 if __name__ == "__main__":
